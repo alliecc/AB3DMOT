@@ -5,6 +5,7 @@ from sklearn.utils.linear_assignment_ import linear_assignment
 from filterpy.kalman import KalmanFilter
 from utils import load_list_from_folder, fileparts, mkdir_if_missing
 from scipy.spatial import ConvexHull
+import dist_metric as dm
 
 @jit    
 def poly_area(x,y):
@@ -333,7 +334,7 @@ class AB3DMOT(object):
     self.reorder = [3, 4, 5, 6, 2, 1, 0]
     self.reorder_back = [6, 5, 4, 0, 1, 2, 3]
 
-  def update(self,dets_all):
+  def update(self,dets_all, dist_metric="iou3d"):
     """
     Params:
       dets_all: dict
@@ -360,12 +361,16 @@ class AB3DMOT(object):
     for t in reversed(to_del):
       self.trackers.pop(t)
 
-    dets_8corner = [convert_3dbox_to_8corner(det_tmp) for det_tmp in dets]
-    if len(dets_8corner) > 0: dets_8corner = np.stack(dets_8corner, axis=0)
-    else: dets_8corner = []
-    trks_8corner = [convert_3dbox_to_8corner(trk_tmp) for trk_tmp in trks]
-    if len(trks_8corner) > 0: trks_8corner = np.stack(trks_8corner, axis=0)
-    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets_8corner, trks_8corner)
+    if dist_metric == "iou3d":
+        dets_8corner = [convert_3dbox_to_8corner(det_tmp) for det_tmp in dets]
+        if len(dets_8corner) > 0: dets_8corner = np.stack(dets_8corner, axis=0)
+        else: dets_8corner = []
+        trks_8corner = [convert_3dbox_to_8corner(trk_tmp) for trk_tmp in trks]
+        if len(trks_8corner) > 0: trks_8corner = np.stack(trks_8corner, axis=0)
+        matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets_8corner, trks_8corner)
+    else:
+        matched, unmatched_dets, unmatched_trks = dm.associate_detections_to_trackers_bbox(dets[:, self.reorder_back], trks[:, self.reorder_back])
+
     
     #update matched trackers with assigned detections
     for t,trk in enumerate(self.trackers):
@@ -397,8 +402,10 @@ if __name__ == '__main__':
     print("Usage: python main.py result_sha(e.g., car_3d_det_test)")
     sys.exit(1)
 
+  dist_metric = "iou3d" #"learned_dist" #"iou3d"
+
   result_sha = sys.argv[1]
-  save_root = './results'
+  save_root = './results_%s' % dist_metric
 
   det_id2str = {1:'Pedestrian', 2:'Car', 3:'Cyclist'}
   seq_file_list, num_seq = load_list_from_folder(os.path.join('data/KITTI', result_sha))
@@ -414,6 +421,7 @@ if __name__ == '__main__':
     save_trk_dir = os.path.join(save_dir, 'trk_withid', seq_name); mkdir_if_missing(save_trk_dir)
     print("Processing %s." % (seq_name))
     for frame in range(int(seq_dets[:,0].min()), int(seq_dets[:,0].max()) + 1):
+
       save_trk_file = os.path.join(save_trk_dir, '%06d.txt' % frame); save_trk_file = open(save_trk_file, 'w')
       dets = seq_dets[seq_dets[:,0]==frame,7:14]
 
@@ -423,7 +431,7 @@ if __name__ == '__main__':
       dets_all = {'dets': dets, 'info': additional_info}
       total_frames += 1
       start_time = time.time()
-      trackers = mot_tracker.update(dets_all)
+      trackers = mot_tracker.update(dets_all, dist_metric)
       cycle_time = time.time() - start_time
       total_time += cycle_time
       for d in trackers:

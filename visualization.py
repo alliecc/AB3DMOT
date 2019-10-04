@@ -10,6 +10,8 @@ score_threshold = -10000
 width = 1242
 height = 374
 seq_list = ['0000', '0003']
+result_folder = "results_learned_dist" #"results_learned_dist" #"results_iou3d"
+print(result_folder)
 
 def vis(result_sha, data_root, result_root):
 	def show_image_with_boxes(img, objects_res, object_gt, calib, save_path, height_threshold=0):
@@ -50,8 +52,9 @@ def vis(result_sha, data_root, result_root):
 			if not is_path_exists(result_tmp): object_res = []
 			else: object_res = read_label(result_tmp)
 			print('processing index: %d, %d/%d, results from %s' % (image_index, count+1, num_images, result_tmp))
+			
 			calib_tmp = Calibration(calib_file)			# load the calibration
-
+           
 			object_res_filtered = []
 			for object_tmp in object_res:
 				if object_tmp.type not in type_whitelist: continue
@@ -71,10 +74,10 @@ if __name__ == "__main__":
 		print("Usage: python visualization.py result_sha(e.g., car_3d_det_test)")
 		sys.exit(1)
 
-	result_root = './results'
+	result_root = './%s' % result_folder
 	result_sha = sys.argv[1]
-	if 'val' in result_sha: data_root = './data/KITTI/resources/training'
-	elif 'test' in result_sha: data_root = './data/KITTI/resources/testing'
+	if 'val' in result_sha: data_root = '/dataset/allie/training'
+	elif 'test' in result_sha: data_root = '/dataset/allie/testing'
 	else:
 		print("wrong split!")
 		sys.exit(1)

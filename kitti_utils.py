@@ -80,11 +80,11 @@ class Calibration(object):
         self.P = calibs['P2'] 
         self.P = np.reshape(self.P, [3,4])
         # Rigid transform from Velodyne coord to reference camera coord
-        self.V2C = calibs['Tr_velo_to_cam']
+        self.V2C = calibs['Tr_velo_cam'] #['Tr_velo_to_cam']
         self.V2C = np.reshape(self.V2C, [3,4])
         self.C2V = inverse_rigid_trans(self.V2C)
         # Rotation from reference camera coord to rect camera coord
-        self.R0 = calibs['R0_rect']
+        self.R0 = calibs['R_rect']#['R0_rect']
         self.R0 = np.reshape(self.R0,[3,3])
 
         # Camera intrinsics and extrinsics
@@ -101,12 +101,17 @@ class Calibration(object):
         '''
         data = {}
         with open(filepath, 'r') as f:
+            count = 0
             for line in f.readlines():
                 line = line.rstrip()
                 if len(line)==0: continue
-                key, value = line.split(':', 1)
+                if count < 4:
+                    key, value = line.split(':', 1)
+                else:
+                    key, value = line.split(' ', 1)
                 # The only non-float values in these files are dates, which
                 # we don't care about anyway
+                count+=1
                 try:
                     data[key] = np.array([float(x) for x in value.split()])
                 except ValueError:
